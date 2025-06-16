@@ -43,12 +43,7 @@ impl Number {
         }
         num1
     }
-    fn from_string(input: &str) -> Self {
-        for c in input.chars() {
-            let n = c as u8 - b'0';
-        }
-        Self::new(vec![0])
-    }
+
 }
 fn main() {
     //let mut i: u32 = 0;
