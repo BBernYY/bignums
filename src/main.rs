@@ -24,7 +24,7 @@ impl Number {
         o
     }
     fn add_u8(&self, num: u8) -> Number {
-        let first = self.data[0];
+        let first = self.clone().stripped().data[0];
         let (sum, ovf) = first.overflowing_add(num);
         let mut new_vec = Vec::with_capacity(self.data.len());
         new_vec.push(sum);             // Push the new first element
@@ -34,7 +34,6 @@ impl Number {
             if out.data.len() > 1 {
                 out = out.divpow(1).0.add_u8(1);
                 out.data.insert(0,sum);
-
             } else {
                 out.data.push(1)
             }
@@ -60,7 +59,7 @@ impl Number {
             let c = num2.data[n];
             let extra: Vec<u8>;
             (num1, extra) = num1.divpow(n);
-            num1 = num1.add_u8(c).repow(n, Some(extra));
+            num1 = num1.stripped().add_u8(c).repow(n, Some(extra));
         }
         num1
     }
@@ -73,8 +72,8 @@ impl Number {
         } else if diff < 0 {
             num2.data.extend(vec![0; -diff as usize]);
         }
-        for i in 0..num2.data.len(){
-        //println!("{:?}, {:?}, {}", num1.data, num2.data, num1.sign);
+        for i in 0..num2.data.len()
+        {
             let (result, overflowed) = num1.data[i].overflowing_sub(num2.data[i]);
             if overflowed {
                 if i == num1.data.len()-1 {
@@ -86,6 +85,18 @@ impl Number {
             num1.data[i] = result;
         }
         num1
+    }
+    fn greaterthan(&self, num2: Number) -> bool {
+        let mut num1 = self.clone().stripped();
+        let diff: i8 = num2.data.len() as i8 - num1.data.len() as i8;
+        if diff > 0 {
+            return false;
+        } else if diff < 0 {
+            return true;
+        }
+        num1.data.last() > num2.data.last()
+
+
     }
     fn multiply(&self, num2: Number) -> Number {
         let mut num1 = Self::new(self.data.clone(), false);
@@ -122,35 +133,51 @@ impl Number {
         let mut num1 = self.clone();
         let mut c = Self::new(vec![0], false);
         let num2 = num.clone();
-        while true {
-            num1 = num1.subtract(num2.clone());
-            if num1.sign {
-                num1 = num1.add(num2.clone());
+        loop {
+            if num2.greaterthan(num1.clone()) {
                 break;
             }
+            num1 = num1.subtract(num2.clone());
             c = c.add_u8(1);
-        }
-        if let Some(last) = num1.data.last_mut() {
-            *last -= 1;
         }
 
         (c, num1)
 
     }
+    fn longdiv(&self, num: Number) -> (Number, Number){
+        let mut num1 = self.clone();
+
+        let mut num2 = num.clone();
+        let mut div;
+        let mut d = Self::new(vec![0], false);
+        let mut num1new;
+        loop {
+            let mut seg: usize = num1.clone().data.len()-num2.data.len();
+            if seg > 0 {seg -= 1;};
+            let (dp, rest) = num1.divpow(seg);
+            (div, num1new) = dp.intdiv(num2.clone());
+            d = d.add(div.repow(seg, None).stripped());
+            num1 = num1new.repow(seg, Some(rest)).stripped().clone();
+            if num2.greaterthan(num1.clone()) {
+                break
+            }
+            
+        }
+        (d, num1)
+    }
     fn repr(&self) -> String{
         let mut num = self.clone();
         let mut out = String::new();
         let mut rem: Number;
-        while true { 
-            (num, rem) = num.intdiv(Self::new(vec![10], false));
-            println!("{} {:?} {:?}", out, num.data, rem.data);
+        loop { 
+            (num, rem) = num.longdiv(Self::new(vec![10], false));
             out.push((rem.data[0] + b'0') as char);
             if num.subtract(Self::new(vec![10], false)).sign {
                 out.push((num.data[0] + b'0') as char);
                 break
             }
         }
-        out
+        out.chars().rev().collect()
     }
     
 
@@ -167,11 +194,12 @@ fn main() {
     //let mut n = Number::new(vec![25, 1, 0]);
     //n = n.multiply(Number::new(vec![4,4]));
     //println!("{}", (25+256)*(4+4*256));
-    //let mut n = Number::from_str("686458934738496234837254823589437549385638946534685934759347578934573497853475934759347593475927345784");
-    //n = n.multiply(Number::from_str("345896435843765834765874309583409583420985293847592803467582347856283467582738946529387457892346985679858975696"));
-    let mut n = Number::from_str("132735433");
-    println!("{:?}", n.data);
-    println!("{}", n.repr())
+    let mut n = Number::from_str("686458934738496234837254823589437549385638946534685934759347578934573497853475934759347593475927345784");
+    n = n.multiply(Number::from_str("345896435843765834765874309583409583420985293847592803467582347856283467582738946529387457892346985679858975696"));
+    //let mut n = Number::from_str("110010");
+    //println!("{:?}", n.data);
+    let (a, b): (Number, Number) = n.longdiv(Number::from_str("134847534957"));
+    println!("{}, {}", a.repr(), b.repr());
    // println!("{:?} {:?}", a.0.data, a.1.data);
 
     //println!("{}", (n.data[0] as u32)+(n.data[1] as u32)*256+(n.data[2] as u32)*256*256);
